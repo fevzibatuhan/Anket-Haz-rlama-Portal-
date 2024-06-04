@@ -1,0 +1,120 @@
+﻿@{
+    ViewData["Title"] = "Answer";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container">
+    <h1 id="surveyTitle" class="mt-4"></h1>
+    <div id="surveyContainer" class="mt-4">
+        <!-- Sorular ve evet/hayır seçenekleri burada listelenecek -->
+    </div>
+    <button id="saveButton" class="btn btn-primary mt-3">Yanıtları Kaydet</button>
+</div>
+
+@section Scripts {
+        <script>
+            $(document).ready(function() {
+                var ApiBaseUrl = "@ViewBag.ApiBaseUrl";
+                var surveyId = "@ViewBag.SurveyId";
+
+                // Anketlerin listesini al
+                SurveyList();
+
+                // Seçilen anketin adını getir
+                SurveyById();
+
+                // Anketlerin listesini alacak fonksiyon
+                function SurveyList() {
+                    $.ajax({
+                        url: ApiBaseUrl + "Surveys",
+                        method: "GET",
+                        headers: {
+                            "Authorization": "Bearer " + token
+                        },
+                        contentType: "application/json",
+                        success: function (data) {
+                            var opt = "";
+                            $("#cbSurvey").empty();
+                            $.each(data, function (i, item) {
+                                opt = '<option value="' + item.id + '">' + item.name + '</option>';
+                                $("#cbSurvey").append(opt);
+                            });
+                        },
+                        error: function () { }
+                    });
+                }
+
+                // Seçilen anketin adını getiren fonksiyon
+                function SurveyById() {
+                    $.ajax({
+                        url: ApiBaseUrl + "Surveys/" + surveyId,
+                        method: "GET",
+                        headers: {
+                            "Authorization": "Bearer " + token
+                        },
+                        contentType: "application/json",
+                        success: function (data) {
+                            $("#surveyTitle").text(data.name); // Anketin ismini yaz
+                        },
+                        error: function () { }
+                    });
+                }
+
+                // Anket sorularını al
+                $.ajax({
+                    url: ApiBaseUrl + "Surveys/" + surveyId + "/Questions", 
+                    method: 'GET',
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    },
+                    success: function(data) {
+                        data.forEach(function(question) {
+                            $('#surveyContainer').append('<div class="mb-3"><h5>' + question.text + '</h5></div>');
+                            $('#surveyContainer').append('<div class="form-check form-check-inline">' +
+                                '<input class="form-check-input" type="radio" name="question_' + question.id + '" value="true"> Evet' +
+                                '</div>');
+                            $('#surveyContainer').append('<div class="form-check form-check-inline">' +
+                                '<input class="form-check-input" type="radio" name="question_' + question.id + '" value="false"> Hayır' +
+                                '</div>');
+                        });
+                    },
+                    error: function() {
+                        console.error('Anket soruları alınamadı.');
+                    }
+                });
+
+                // Kaydet butonuna tıklanınca
+                $('#saveButton').click(function() {
+                    var answers = [];
+                    $('[name^="question_"]').each(function() {
+                        var questionId = $(this).attr('name').split('_')[1];
+                        var answer = {
+                            questionId: questionId,
+                            yesNoAnswer: $(this).find(':checked').val() === 'true'
+                        };
+                        answers.push(answer);
+                    });
+
+                    // Yanıtları kaydet
+                    $.ajax({
+                        url: ApiBaseUrl + "Answer",
+                        method: 'POST',
+                        headers: {
+                            "Authorization": "Bearer " + token
+                        },
+                        contentType: 'application/json',
+                        data: JSON.stringify(answers),
+                        beforeSend: function (xhr) {
+                            xhr.setRequestHeader('Authorization', token);
+                        },
+                        success: function(response) {
+                            console.log('Yanıtlar başarıyla kaydedildi.');
+                        },
+                        error: function() {
+                            console.error('Yanıtlar kaydedilemedi.');
+                        }
+                    });
+                });
+            });
+        </script>
+}
